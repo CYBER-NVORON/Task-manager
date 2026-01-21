@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+from flask import jsonify, abort
 import os
 from dotenv import load_dotenv
 
@@ -131,6 +132,80 @@ def register():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+
+@app.route('/api/tasks', methods=['GET'])
+@login_required
+def api_get_tasks():
+    tasks = Task.query.filter_by(user_id=current_user.id).all()
+
+    return jsonify([
+        {
+            "id": task.id,
+            "title": task.title,
+            "done": task.done,
+            "created_at": task.created_at.isoformat()
+        }
+        for task in tasks
+    ])
+
+
+@app.route('/api/tasks', methods=['POST'])
+@login_required
+def api_create_task():
+    data = request.get_json()
+
+    if not data or not data.get('title'):
+        return jsonify({"error": "Title is required"}), 400
+
+    task = Task(
+        title=data['title'],
+        user_id=current_user.id
+    )
+
+    db.session.add(task)
+    db.session.commit()
+
+    return jsonify({
+        "id": task.id,
+        "title": task.title,
+        "done": task.done
+    }), 201
+
+
+@app.route('/api/tasks/<int:task_id>', methods=['PUT'])
+@login_required
+def api_update_task(task_id):
+    task = Task.query.get_or_404(task_id)
+
+    if task.user_id != current_user.id:
+        abort(403)
+
+    data = request.get_json()
+
+    if 'title' in data:
+        task.title = data['title']
+
+    if 'done' in data:
+        task.done = data['done']
+
+    db.session.commit()
+
+    return jsonify({"message": "Task updated"})
+
+
+@app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
+@login_required
+def api_delete_task(task_id):
+    task = Task.query.get_or_404(task_id)
+
+    if task.user_id != current_user.id:
+        abort(403)
+
+    db.session.delete(task)
+    db.session.commit()
+
+    return jsonify({"message": "Task deleted"})
 
 
 if __name__ == '__main__':
