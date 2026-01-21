@@ -45,8 +45,6 @@ SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///tasks.db
 ```
 
-The `.env` file must not be committed to the repository.
-
 ---
 
 ## Running Without Docker
